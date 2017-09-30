@@ -1,4 +1,12 @@
 #!/usr/bin/perl
+########################### pypl.pl ############################
+# author :
+# developdate: 20170930
+################################################################
+
+
+
+##### translate print
 sub trans_print
 {  
 	$line =  $_[0]; 
@@ -24,17 +32,9 @@ sub trans_print
 	    $re = trans_var($3);
 		$line = $1."print ".$re."";
 		#print $line;
-	}elsif($line =~ /^(\s*)(print\(\s*)(^\".*)([ ]*\))/){# print(factor0 * factor1)
-		$re = trans_var($3);
-		$line = $1."print ".$re.", \"\\n\"";
-		if(length($re)>0){
-			$line = $1."print ".$re.", \"\\n\"";
-		}else{
-			$line = $1."print \"\\n\"";
-		}
-		#print $line;
 	}elsif($line =~ /^(\s*)(print\(\s*)(\")(.*)(\"\s*)(%\s*)(.*)(\s*\))$/){ #string formatting with the % operator
 		#print "get formate \n";
+		#print "var * var";
 		$spaces = $1;
 		$part1 = $4;
 		$part2 = $7;
@@ -87,11 +87,24 @@ sub trans_print
 			
 		}
 	}
+	elsif($line =~ /^(\s*)(print\(\s*)(.*)(\s*\))/){# print(factor0 * factor1)
+		#print "var * var";
+		$re = trans_var($3);
+		$line = $1."print ".$re.", \"\\n\"";
+		if(length($re)>0){
+			$line = $1."print ".$re.", \"\\n\"";
+		}else{
+			$line = $1."print \"\\n\"";
+		}
+		#print $line;
+	}
+	#print "var * var";
 	#print $line;
 	#print "\n";
 	return $line;
 	
 } 
+###### translate var statement
 sub trans_var
 {
 	$line =  $_[0];
@@ -104,7 +117,7 @@ sub trans_var
 	
 	
 	@flagarrtmp = ();
-	@paraarr = split /[\[\]\(\)\^~=|&<>\/!%*+-]{1,}/,$line; 
+	@paraarr = split /[\[\]\(\)\^~=|&<>\/!%*+-]{1,}/,$line; #split statement
 	@flagarr = ();
 	#print "#```````````#\n";
 	foreach $c (@paraarr){
@@ -116,6 +129,7 @@ sub trans_var
 	@flagarrtmp = $line =~ /(~)|(<<)|(>>)|(||)|(\/\/)|(<>)|([\[\]\)\(\^&\|=<>\/!%\*+-]{1,})/g;
 	
 	#print "#####\n";
+	#### handle with symbol
 	foreach $c (@flagarrtmp){
 		if($c ne ''){
 			if($c ne '~'){
@@ -150,6 +164,7 @@ sub trans_var
 	$cmds = "";
 	$len = @flagarr;
 	#print "$len\n";
+	#### handle with var name
 	for($i = 0;$i < @paraarr;$i++){
 		#print @paraarr[$i];
 		#print "\n";
@@ -195,6 +210,7 @@ sub trans_var
 	return $cmds;
 	
 }
+###### translate whgile/if in a line
 sub transwhileifline
 {
 	#print "######whileif one line start\n";
@@ -231,6 +247,7 @@ sub transwhileifline
 	return @cellarr;
 	
 }
+###### translate whgile/if in muti lines
 sub transwhileifformulti
 {
 	#print "######whileiffor multi line start\n";
@@ -266,7 +283,7 @@ sub transwhileifformulti
 		}elsif($paralen > 1)
 		{
 			$paranew2 = trans_var(@paraarr[1]);
-			$content = "(".@paraarrnew."..(".$paranew2." - 1))";
+			$content = "(".$paranew."..(".$paranew2." - 1))";
 		}
 		
 		#print @paraarr[0];
@@ -280,6 +297,7 @@ sub transwhileifformulti
 	}
 	return $cmd;
 }
+###### translate list.append
 sub trans_append
 {
 	#print "######list.append start\n";
@@ -294,6 +312,7 @@ sub trans_append
 	return $cmd;
 	
 }
+###### translate list.pop
 sub trans_pop
 {
 	#print "######list.pop start\n";
@@ -331,46 +350,57 @@ if (open(my $fh, '<:encoding(UTF-8)', $filename)) {
 @multilinespacelen = ();
 foreach $arg (@line) {
 	$output = $arg;
+	# head line
 	if ($output =~ /#!\/usr\/bin\/python3.*/){
 		$output = "#!/usr/bin/perl -w"; 
 	}
+	# import
 	if($output =~ /import.*/){
 		$output = "";
 	}
+	# sys.stdout.write
 	if($output =~ /^(.*)(sys.stdout.write\(\s*)(.*)(\))/ ){
 		$output = $1."print(".$3.",end='')";
 	}
+	# sys.stdin.readline
 	if($output =~ /\s*sys.stdin.readline\(\)\s*/ ){
 		$output =~ s/sys.stdin.readline\(\)/STDIN/;
 	}
+	# sys.stdin
 	if($output =~ /\s*sys.stdin[^.]\s*/ ){
 		$output =~ s/sys.stdin/STDIN/;
 	}
+	# sys.stdin.readlines
 	if($output =~ /^(\s*)([a-zA-Z]{1}[0-9a-zA-Z_]*)(\s*=\s*)(sys.stdin.readlines)/ ){
 		#print "readlines\n";
 		$spaces = $1;
 		$cc = $2;
 		$output = $spaces."while (1){\n".$spaces.$spaces."last if eof STDIN;\n".$spaces.$spaces."push @".$cc.", scalar <STDIN>;\n".$spaces."}";
 	}
+	# len()
 	if($output =~ /(len\(\s*)([a-zA-Z]{1}[0-9a-zA-Z_]*)(\))/ ){
 		#$tmpvar = $2;
 		$output =~ s/(len\(\s*)([a-zA-Z]{1}[0-9a-zA-Z_]*)(\))/\@$2/;
 		#print $output." sss\n";
 	}
+	# sorted()
 	if($output =~ /(sorted\(\s*)([a-zA-Z]{1}[0-9a-zA-Z_]*)(\))/ ){
 		#$tmpvar = $2;
 		$output =~ s/(sorted\(\s*)([a-zA-Z]{1}[0-9a-zA-Z_]*)(\))/sort \@$2;/;
 		#print $output." sss\n";
 	}
+	# a = []
 	if($output =~ /^(\s*)([a-zA-Z]{1}[0-9a-zA-Z_]*)(\s*=\s*\[\s*\])/){
 		$output = "";
 	}
+	# list.appand
 	if($output =~ /^\s*[a-zA-Z]{1}[0-9a-zA-Z_]*\.append\(/){
 		#print "appand!\n";
 		$output =~ /([ ]*)/;
 		$output = $1.trans_append($output);
 		$output =  $output.";";
 	}
+	# list.pop
 	if($output =~ /^\s*[a-zA-Z]{1}[0-9a-zA-Z_]*\.pop\(/){
 		#print "pop!\n";
 		#trans_pop($output);
@@ -378,20 +408,23 @@ foreach $arg (@line) {
 		$output = $1.trans_pop($output);
 		$output =  $output.";";
 	}
+	# break
 	if($output =~ /break/){
 		$output =~ s/break/last/;
 		$output = $output.";";
 	}
+	# continue
 	if($output =~ /continue/){
 		$output =~ s/continue/next/;
 		$output = $output.";";
 	}
-	
+	# print
 	if($output =~ /^[ ]*print\(/){
 		#print "print\n";
 		$output = trans_print($output);
 		$output =  $output.";";
 	}
+	# var = ...
 	if($output =~ /^[ ]*[a-zA-Z]{1}[0-9a-zA-Z_]*[ ]*=[ ]*/ )# var = 
 	{
 		if($output =~ /\s*sys.stdin.readlines/ ){
@@ -403,6 +436,7 @@ foreach $arg (@line) {
 		}
 		
 	}
+	# loop in line
 	if($output =~ /^[ ]*(while|if|elif|else).*:.*[\S]+/){ # while line
 		#print "find while";
 		$output =~ /( *)/;
@@ -415,10 +449,11 @@ foreach $arg (@line) {
 		}
 		next;
 	}
-	
+	# loop in muti lines
 	if($output =~ /^[ ]*(while|if|elif|else|for).*:[\s]*$/){
 		#push @multilinespacenum
 		#print "getget";
+		#check stack for echo "}"
 		$mutilineslen = @multilinespacenlen;
 		if($mutilineslen > 0){
 			#print @multilinespacenlen[ $mutilineslen - 1];
@@ -466,6 +501,7 @@ foreach $arg (@line) {
 		#print "$spacelen  find muti line\n";
 		next;
 	}
+	#check stack for echo "}"
 	$mutilineslen = @multilinespacenlen;
 	if($mutilineslen > 0){
 		#print @multilinespacenlen[ $mutilineslen - 1];
@@ -510,6 +546,7 @@ foreach $arg (@line) {
 
 
 }
+#check stack for echo "}"
 $mutilineslen = @multilinespacenlen;
 if($mutilineslen > 0){
 		#print @multilinespacenlen[ $mutilineslen - 1];

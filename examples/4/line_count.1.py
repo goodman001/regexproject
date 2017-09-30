@@ -4,4 +4,6 @@
 
 import sys
 
-print(factor0 * factor1)
+lines = sys.stdin.readlines()
+line_count = len(lines)
+print("%d lines" % line_count)
